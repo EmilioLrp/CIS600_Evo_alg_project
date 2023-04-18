@@ -13,9 +13,7 @@ def calculate_train_acc(pred, label):
     pred_round = np.zeros(pred.shape)
     for i in range(pred.shape[0]):
         pred_round[i, max_idx[i]] = float(1)
-    # pred = np.round(pred)
     label = label.cpu().detach().numpy()
-    # acc = float(np.sum(pred_round == label))/label.shape[0]
     acc = 0
     for i in range(label.shape[0]):
         if np.array_equal(pred_round[i, :], label[i, :]):
@@ -36,7 +34,13 @@ def calculate_test_acc(model, testing_data):
         count = i
     return float(correct) / float(count)
 
-def train():
+def train(exp_num):
+    accuracy_path = os.path.dirname(__file__) + "/accuracies/mlp/exp_{}/".format(exp_num)
+    model_path = os.path.dirname(__file__) + "/models/mlp/exp_{}/".format(exp_num)
+    if not os.path.exists(accuracy_path):
+        os.makedirs(accuracy_path)
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
     train_x, test_x, train_y, test_y = data_util.load_data()
     train_data = DataSet(train_x, train_y)
     test_data = DataSet(test_x, test_y)
@@ -65,10 +69,12 @@ def train():
             print("train_acc: {}, test_acc: {}".format(train_acc, test_acc))
             train_acc_list.append(train_acc)
             test_acc_list.append(test_acc)
-    acc_lists_file = os.path.dirname(__file__) + "acc_lists.txt"
-    with open(acc_lists_file, "rb") as f:
+    acc_lists_file = accuracy_path + "acc_lists.txt"
+    with open(acc_lists_file, "wb") as f:
         pk.dump((train_acc_list, test_acc_list), f)
-    torch.save(model.state_dict(), os.path.dirname(__file__) + "model.pt")
+    torch.save(model.state_dict(), model_path + "model.pt")
 
 if __name__ == "__main__":
-    train()
+    exp_num = 10
+    for exp in range(exp_num):
+        train(exp)

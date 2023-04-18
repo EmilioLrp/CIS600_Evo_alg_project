@@ -1,7 +1,6 @@
 import os 
 import numpy as np
 import sklearn.model_selection
-import torch
 
 data_dir = os.path.dirname(__file__) + "/letter_data" 
 
@@ -21,6 +20,10 @@ def load_data():
             data.append(inputs)
             # data.append((idx, inputs))
     return sklearn.model_selection.train_test_split(data, labels, test_size=0.3, random_state=42)
+
+def load_data_mat():
+    train_x, test_x, train_y, test_y = load_data()
+    return np.array(train_x), np.array(test_x), np.array(train_y), np.array(test_y)
 
 if __name__ == "__main__":
     train_x, test_x, train_y, test_y = load_data()
