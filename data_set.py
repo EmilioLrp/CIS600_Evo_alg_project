@@ -8,7 +8,11 @@ https://medium.com/analytics-vidhya/a-simple-neural-network-classifier-using-pyt
 class DataSet(torch.utils.data.Dataset):
     def __init__(self, X_train, y_train):
         self.X = torch.FloatTensor(np.array(X_train))
-        self.y = torch.FloatTensor(y_train)
+        # if isinstance(y_train, np.ndarray):
+        #     self.y = torch.FloatTensor(y_train)
+        # else:
+        #     self.y = torch.FloatTensor(np.array(y_train))
+        self.y = torch.FloatTensor(np.array(y_train))
         self.len = self.X.shape[0]
 
     def __getitem__(self, index):

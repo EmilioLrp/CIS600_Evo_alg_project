@@ -21,7 +21,7 @@ def calculate_train_acc(pred, label):
     return float(acc)/ float(label.shape[0])
 
 def calculate_test_acc(model, testing_data):
-    batch_size = 100
+    batch_size = 1000
     testloader = torch.utils.data.DataLoader(testing_data, batch_size=batch_size, shuffle=True, num_workers=2)
     correct = 0
     count = 0
