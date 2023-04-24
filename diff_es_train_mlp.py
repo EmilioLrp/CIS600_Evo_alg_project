@@ -29,6 +29,21 @@ def calculate_test_acc(model, testing_data):
     model.to(device)
     return train_mlp.calculate_test_acc(model, testing_data)
 
+def calculate_diff(model, testing_data):
+    model.cuda()
+    loss_fn = torch.nn.CrossEntropyLoss()
+    batch_size = 1000
+    testloader = torch.utils.data.DataLoader(testing_data, batch_size=batch_size, shuffle=True, num_workers=2)
+    loss = 0
+    count = 0
+    for i, data in enumerate(testloader):
+        input, label = data
+        label = label.cuda()
+        input = input.cuda()
+        output = model(input).squeeze()
+        loss += loss_fn(output, label).item()
+        loss /= 2
+    return -1 * loss
 
 def confusion_matrix(model, test_data):
     model.to(device)
@@ -56,7 +71,7 @@ def training(exp_num, training_data, testing_data):
     pop_fit_test = []
     for i in range(20):
         model = MLPClassifier()
-        fit_train = calculate_test_acc(model, training_data)
+        fit_train = calculate_diff(model, training_data)
         fit_test = calculate_test_acc(model, testing_data)
         population.append(model)
         pop_fit_train.append(fit_train)

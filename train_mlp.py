@@ -8,7 +8,7 @@ import pickle as pk
 
 def calculate_train_acc(pred, label):
     pred = pred.cpu().detach()
-    pred = torch.nn.functional.softmax(pred).numpy()
+    pred = torch.nn.functional.softmax(pred, dim=1).numpy()
     max_idx = np.argmax(pred, -1)
     pred_round = np.zeros(pred.shape)
     for i in range(pred.shape[0]):

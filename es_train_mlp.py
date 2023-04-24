@@ -52,17 +52,17 @@ def confusion_matrix(exp_num, model, test_data):
 
 def training(exp_num, training_data, testing_data):
     print("********experiment {}*********".format(exp_num))
-    pop_size = 4
-    offspring_size = 20
+    pop_size = 25
+    offspring_size = 100
     population = []
-    init_nums = np.random.choice(range(10), pop_size, replace=False)
-    for i in init_nums:
+    # init_nums = np.random.choice(range(10), pop_size, replace=False)
+    for i in range(pop_size):
         model = MLPClassifier()
         population.append(model)
     result = evolution_alg(pop_size, offspring_size, population, training_data, testing_data, exp_num)
     exp_dir = proj_dir + "/model/es/exp_{}".format(exp_num)
     if not os.path.exists(exp_dir):
-        os.mkdir(exp_dir)
+        os.makedirs(exp_dir)
     for i in range(len(result)):
         torch.save(result[i].state_dict(), exp_dir + "/model_{}.pt".format(i))
 
@@ -72,27 +72,29 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
     reference https://github.com/shahril96/neural-network-with-genetic-algorithm-optimizer
     """
     population = init_pop
-    sigma = float(1)
-    n = 10
-    k_lim = 10
-    p = 0.5
+    sigma = float(100)
+    n = 3
+    k_lim = 50
+    p = 0.2
     r = 0.1
+    pop_train_acc = [acc_estimate(item, evaluate_data) for item in population]
+    # pop_test_acc = [acc_estimate(item, test_data) for item in population]
     # train_max_acc_list = []
-    train_avg_acc_list = [acc_estimate(item, evaluate_data) for item in population]
+    train_avg_acc_list = []
     # test_max_acc_list = []
-    test_avg_acc_list = [acc_estimate(item, test_data) for item in population]
+    test_avg_acc_list = []
+    mutation_rate = 0.1
     for k in range(k_lim):
         counter = 0
         for i in range(n):
             offsprings = []
             o_performance = np.array([])
             for _ in range(offspring_size):
-                mutation_rate = {key:torch.rand(size=population[0].state_dict()[key].size()) for key in population[0].state_dict().keys()}
                 # sample parents without replacement
                 parents = random.sample(range(len(population)), 2)
                 p1 = population[parents[0]]
                 p2 = population[parents[1]]
-                ref_performance = train_avg_acc_list[parents[0]]
+                ref_performance = pop_train_acc[parents[0]]
                 child = one_pt_crossover(p, p1, p2)
                 child = mutation(mutation_rate, sigma, child)
                 train_acc = acc_estimate(child, evaluate_data)
@@ -100,20 +102,24 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
                     counter += 1
                 offsprings.append(child)
                 o_performance = np.append(o_performance, train_acc)
+            offsprings += population
+            o_performance = np.append(o_performance, np.array(pop_train_acc))
             best_o = np.flip(np.argsort(o_performance))[:pop_size]
             train_avg_acc = np.sum(o_performance[best_o]) / float(pop_size)
             train_avg_acc_list.append(train_avg_acc)
             population = []
+            pop_train_acc = []
             test_avg_acc = 0
             for idx in best_o:
                 net = offsprings[idx]
                 test_acc = calculate_test_acc(net, test_data)
                 test_avg_acc += test_acc
                 population.append(net)
+                pop_train_acc.append(o_performance[idx])
             test_avg_acc = test_avg_acc / float(pop_size)
             test_avg_acc_list.append(test_avg_acc)
-            print("iter: {}, train_acc: {}, test_acc: {}".format(i+k*n, train_avg_acc, test_avg_acc))
-        if counter < n * offspring_size / 5:
+            print("iter: {}, train_acc: {}, test_acc: {}, best_acc:, {}, sigma: {}".format(i+k*n, train_avg_acc, test_avg_acc, o_performance[best_o[0]], sigma))
+        if counter < n * offspring_size / 20:
             sigma = sigma * (1-r)
         else:
             sigma = sigma * (1+r)
@@ -121,9 +127,9 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
     return population
 
 def save_accuracy_list(train_max_acc, train_avg_acc, test_max_acc, test_avg_acc, exp_num):
-    acc_dir = proj_dir + "/accuracy_list/exp_{}".format(exp_num)
+    acc_dir = proj_dir + "/accuracies/es/exp_{}".format(exp_num)
     if not os.path.exists(acc_dir):
-        os.mkdir(acc_dir)
+        os.makedirs(acc_dir)
     if not train_max_acc is None:
         with open(acc_dir + "/train_max.txt", "wb") as f1:
             pk.dump(train_max_acc, f1)
@@ -138,26 +144,27 @@ def save_accuracy_list(train_max_acc, train_avg_acc, test_max_acc, test_avg_acc,
             pk.dump(test_avg_acc, f4)
 
 def one_pt_crossover(cross_over_rate: float, parent_1, parent_2):
-    """
-    linear.weight (24,12)
-    linear.bias (24)
-    hidden.weight (1, 24)
-    hidden.bias (1)
-    """
     p1_states = copy.deepcopy(parent_1.state_dict())
     p2_states = copy.deepcopy(parent_2.state_dict())
 
-    for key in p1_states.keys():
-        p1_weights, p2_weights = p1_states[key], p2_states[key]
-        dim = p1_weights.size()
-        p1_w_flat, p2_w_flat = torch.flatten(p1_weights), torch.flatten(p2_weights)
-        x_point = np.random.randint(low = 0, high = len(p1_w_flat), size=1)[0]
-        r = random.random()
-        if r > cross_over_rate:
-            p1_w_flat = torch.cat((p1_w_flat[:x_point], p2_w_flat[x_point:]))
-            p1_states[key] = p1_w_flat.reshape(dim)
+    # for key in p1_states.keys():
+    #     p1_weights, p2_weights = p1_states[key], p2_states[key]
+    #     dim = p1_weights.size()
+    #     p1_w_flat, p2_w_flat = torch.flatten(p1_weights), torch.flatten(p2_weights)
+    #     x_point = np.random.randint(low = 0, high = len(p1_w_flat), size=1)[0]
+    #     r = random.random()
+    #     if r > cross_over_rate:
+    #         p1_w_flat = torch.cat((p1_w_flat[:x_point], p2_w_flat[x_point:]))
+    #         p1_states[key] = p1_w_flat.reshape(dim)
+    r = random.random()
+    child_state = {}
+    if r < cross_over_rate:
+        child_state = random.choice([p1_states, p2_states])
+    else: 
+        for k in p1_states.keys():
+            child_state[k] = (p1_states[k] + p2_states[k]) / 2
     model = MLPClassifier()
-    model.load_state_dict(p1_states)
+    model.load_state_dict(child_state)
     return model
 
 
@@ -166,10 +173,11 @@ def mutation(mutation_rate: float, sigma: float, offspring: MLPClassifier):
     for key in states.keys():
         weights = states[key]
         dim = weights.size()
-        weight_flatten, mut_rate_flatten = torch.flatten(weights), torch.flatten(mutation_rate[key])
+        # weight_flatten, mut_rate_flatten = torch.flatten(weights), torch.flatten(mutation_rate[key])
+        weight_flatten = torch.flatten(weights)
         for i in range(len(weight_flatten)):
             r = random.random()
-            if r > mut_rate_flatten[i]:
+            if r > mutation_rate:
                 weight_flatten[i] += torch.normal(0, sigma, size=weight_flatten[i].size())
         states[key] = weight_flatten.reshape(dim)
     model = MLPClassifier()
