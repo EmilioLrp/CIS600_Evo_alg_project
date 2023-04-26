@@ -35,8 +35,8 @@ def calculate_test_acc(model, testing_data):
     return float(correct) / float(count)
 
 def train(exp_num):
-    accuracy_path = os.path.dirname(__file__) + "/accuracies/mlp/exp_{}/".format(exp_num)
-    model_path = os.path.dirname(__file__) + "/models/mlp/exp_{}/".format(exp_num)
+    accuracy_path = os.path.dirname(__file__) + "/accuracies/mlp_2/exp_{}/".format(exp_num)
+    model_path = os.path.dirname(__file__) + "/models/mlp_2/exp_{}/".format(exp_num)
     if not os.path.exists(accuracy_path):
         os.makedirs(accuracy_path)
     if not os.path.exists(model_path):
@@ -44,7 +44,7 @@ def train(exp_num):
     train_x, test_x, train_y, test_y = data_util.load_data()
     train_data = DataSet(train_x, train_y)
     test_data = DataSet(test_x, test_y)
-    epoch = 100
+    epoch = 8
     batch_size = 1000
     trainloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
     model = MLPClassifier()
