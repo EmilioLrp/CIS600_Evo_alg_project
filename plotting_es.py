@@ -49,8 +49,8 @@ def read_accuracies():
     plt.xlabel("generation")
     plt.ylabel("accuracy")
     plt.legend()
-    plt.show()
-    # plt.savefig(proj_dir + "accuracies.png")
+    # plt.show()
+    plt.savefig("es_accuracies.png")
 
 
 def read_confusion_matrix():

@@ -9,6 +9,8 @@ from data_set import DataSet
 from mlp import MLPClassifier
 from train_mlp import calculate_test_acc
 from data_util import load_data
+import matplotlib.pyplot as plt
+
 
 device = torch.device("cuda:0")
 # device = torch.device("cpu")
@@ -29,30 +31,9 @@ def acc_estimate(model, dataset):
     model.cuda()
     return calculate_test_acc(model, dataset)
 
-def confusion_matrix(exp_num, model, test_data):
-    model.to(device)
-    batch_size = 100
-    testloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True, num_workers=2)
-    actual = np.array([])
-    predict = np.array([])
-    for i, data in enumerate(testloader):
-        input, label = data
-        label = label.unsqueeze(-1)
-        input = input.to(device)
-        output = model(input)
-        output = output.cpu().detach().numpy()
-        output = np.round(output).astype(int).squeeze()
-        label = label.cpu().detach().numpy().astype(int).squeeze()
-        actual = np.concatenate((actual, label))
-        predict = np.concatenate((predict, output))
-    conf_mat = sklearn.metrics.confusion_matrix(actual, predict)
-    # np.save("confusion_matrix/exp_{}".format(exp_num), conf_mat)
-    return conf_mat
-
-
 def training(exp_num, training_data, testing_data):
     print("********experiment {}*********".format(exp_num))
-    pop_size = 25
+    pop_size = 15
     offspring_size = 100
     population = []
     # init_nums = np.random.choice(range(10), pop_size, replace=False)
@@ -60,7 +41,7 @@ def training(exp_num, training_data, testing_data):
         model = MLPClassifier()
         population.append(model)
     result = evolution_alg(pop_size, offspring_size, population, training_data, testing_data, exp_num)
-    exp_dir = proj_dir + "/model/es/exp_{}".format(exp_num)
+    exp_dir = proj_dir + "/model/es_1/exp_{}".format(exp_num)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     for i in range(len(result)):
@@ -75,7 +56,10 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
     sigma = float(100)
     n = 3
     k_lim = 50
-    p = 0.2
+    # k_lim = 1
+    # crossover rate
+    p = 0.3
+    # ration for self adaptive sigma
     r = 0.1
     pop_train_acc = [acc_estimate(item, evaluate_data) for item in population]
     # pop_test_acc = [acc_estimate(item, test_data) for item in population]
@@ -83,7 +67,7 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
     train_avg_acc_list = []
     # test_max_acc_list = []
     test_avg_acc_list = []
-    mutation_rate = 0.1
+    mutation_rate = 0.5
     for k in range(k_lim):
         counter = 0
         for i in range(n):
@@ -127,7 +111,7 @@ def evolution_alg(pop_size, offspring_size, init_pop, evaluate_data, test_data, 
     return population
 
 def save_accuracy_list(train_max_acc, train_avg_acc, test_max_acc, test_avg_acc, exp_num):
-    acc_dir = proj_dir + "/accuracies/es/exp_{}".format(exp_num)
+    acc_dir = proj_dir + "/accuracies/es_1/exp_{}".format(exp_num)
     if not os.path.exists(acc_dir):
         os.makedirs(acc_dir)
     if not train_max_acc is None:
@@ -170,6 +154,7 @@ def one_pt_crossover(cross_over_rate: float, parent_1, parent_2):
 
 def mutation(mutation_rate: float, sigma: float, offspring: MLPClassifier):
     states = copy.deepcopy(offspring.state_dict())
+    distribution = torch.distributions.Cauchy(0, sigma)
     for key in states.keys():
         weights = states[key]
         dim = weights.size()
@@ -178,43 +163,81 @@ def mutation(mutation_rate: float, sigma: float, offspring: MLPClassifier):
         for i in range(len(weight_flatten)):
             r = random.random()
             if r > mutation_rate:
-                weight_flatten[i] += torch.normal(0, sigma, size=weight_flatten[i].size())
+                # weight_flatten[i] += torch.normal(0, sigma, size=weight_flatten[i].size())
+                weight_flatten[i] += distribution.sample().item()
         states[key] = weight_flatten.reshape(dim)
     model = MLPClassifier()
     model.load_state_dict(states)
     return model
 
+def confusion_matrix(model, test_data):
+    model.cuda()
+    batch_size = 1000
+    testloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True, num_workers=2)
+    actual = None
+    predict = None
+    for i, data in enumerate(testloader):
+        input, label = data
+        input = input.cuda()
+        output = model(input)
+        output = output.cpu().detach()
+        # output = np.round(output).astype(int).squeeze()
+        pred = torch.nn.functional.softmax(output, dim=1).numpy()
+        max_idx = np.argmax(pred, -1)
+        # pred_round = np.zeros(pred.shape)
+        # for i in range(pred.shape[0]):
+        #     pred_round[i, max_idx[i]] = float(1)
+        label = label.cpu().detach().numpy().astype(int)
+        label_max = np.argmax(label, -1)
+        if actual is None:
+            actual = label_max
+        else:
+            actual = np.concatenate((actual, label_max))
+        if predict is None:
+            predict = max_idx
+        else:
+            predict = np.concatenate((predict, max_idx))
+    conf_mat = sklearn.metrics.confusion_matrix(actual, predict, labels=range(26))
+    return conf_mat
+
+
 def get_confuse_mat():
-    x_train, y_train, x_test, y_test = load_data()
-    train_data = DataSet(x_train, y_train)
-    test_data = DataSet(x_test, y_test)
+    # accuracy_path = os.path.dirname(__file__) + "/accuracies/mlp/exp_{}/"
+    train_x, test_x, train_y, test_y = load_data()
+    train_data = DataSet(train_x, train_y)
+    test_data = DataSet(test_x, test_y)
     experience_num = 10
     avg_confuse = None
     for i in range(experience_num):
-        # training(i, train_data, test_data)
-        exp_dir = proj_dir + "/result/model/exp_{}".format(i)
+        exp_dir = proj_dir + "/model/es/exp_{}".format(i)
         confuse = None
-        for j in range(4):
+        # with open (model_path + "/models.mod", "rb") as f:
+        for j in range(25):
+            model_path = exp_dir + "/model_{}.pt".format(j)
             model = MLPClassifier()
-            model_file = exp_dir + "/model_{}.pt".format(j)
-            model.load_state_dict(torch.load(model_file))
+            model.load_state_dict(torch.load(model_path))
+            
             if confuse is None:
-                confuse = confusion_matrix(i, model, test_data)
+                confuse = confusion_matrix(model, test_data)
             else:
-                confuse += confusion_matrix(i, model, test_data)
+                confuse += confusion_matrix(model, test_data)
+        confuse = confuse / float(25)
         if avg_confuse is None:
-            avg_confuse = confuse / float(4)
+            avg_confuse = confuse
         else:
-           avg_confuse += confuse / float(4) 
+            avg_confuse  = avg_confuse + confuse
     avg_confuse = avg_confuse / float(10)
-    print(avg_confuse)
+    disp = sklearn.metrics.ConfusionMatrixDisplay(confuse, display_labels=range(26))
+    disp.plot()
+    plt.show()
+    # print(avg_confuse)
 
 if __name__ == '__main__':
-    x_train, x_test, y_train, y_test = load_data()
-    train_data = DataSet(x_train, y_train)
-    test_data = DataSet(x_test, y_test)
-    experience_num = 10
-    avg_confuse = None
-    for i in range(experience_num):
-        training(i, train_data, test_data)
-    # get_confuse_mat()
+    # x_train, x_test, y_train, y_test = load_data()
+    # train_data = DataSet(x_train, y_train)
+    # test_data = DataSet(x_test, y_test)
+    # experience_num = 10
+    # avg_confuse = None
+    # for i in range(experience_num):
+    #     training(i, train_data, test_data)
+    get_confuse_mat()

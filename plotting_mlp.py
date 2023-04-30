@@ -9,7 +9,7 @@ def read_accuracies():
     sum_train_acc = None
     sum_test_acc = None
     for exp_num in range(10):
-        with open(proj_dir + "/accuracies/mlp/exp_{}/acc_lists.txt".format(exp_num), "rb") as f:
+        with open(proj_dir + "/accuracies/mlp_1/exp_{}/acc_lists.txt".format(exp_num), "rb") as f:
             train_acc, test_acc = pk.load(f)
             if sum_train_acc is None:
                 sum_train_acc = np.array(train_acc)
@@ -21,13 +21,14 @@ def read_accuracies():
                 sum_test_acc += np.array(test_acc)
     avg_train_acc = sum_train_acc / float(10)
     avg_test_acc = sum_test_acc / float(10)
-    x = np.log(np.arange(1, sum_train_acc.size + 1))
+    x = np.arange(1, sum_train_acc.size + 1)
     plt.plot(x, avg_train_acc, label="train accuracy")
     plt.plot(x, avg_test_acc, label="test accuracy")
-    plt.xlabel("iteration (log)")
+    plt.xlabel("iteration")
     plt.ylabel("accuracy")
     plt.legend()
-    plt.show()
+    # plt.show()
+    plt.savefig("gradient_accuracies.png")
     # for exp_num in range(10):
     #     x = None
     #     with open(proj_dir + "/accuracies/mlp/exp_{}/acc_lists.txt".format(exp_num), "rb") as f:
