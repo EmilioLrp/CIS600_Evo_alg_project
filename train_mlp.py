@@ -115,7 +115,7 @@ def get_confuse_mat():
     experience_num = 10
     avg_confuse = None
     for i in range(experience_num):
-        model_path = os.path.dirname(__file__) + "/models/mlp/exp_{}/model.pt".format(i)
+        model_path = os.path.dirname(__file__) + "/models/mlp_2/exp_{}/model.pt".format(i)
         # training(i, train_data, test_data)
         # exp_dir = os.path.dirname(__file__) + "/result/model/exp_{}".format(i)
         confuse = None
